@@ -1,110 +1,192 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Users, AlertTriangle, Edit } from 'lucide-react';
+import { Users, AlertTriangle, Edit, UserX } from 'lucide-react';
 import RiskFactorForm from './RiskFactorForm';
 
-interface StudentRecord {
+interface RegistroEstudiante {
   id: string;
-  student: {
-    control_number: string;
-    first_name: string;
-    paternal_surname: string;
-    maternal_surname: string;
+  estudiante: {
+    numero_control: string;
+    nombre: string;
+    apellido_paterno: string;
+    apellido_materno: string;
   };
-  subject: {
-    name: string;
+  materia: {
+    nombre: string;
   };
-  semester: number;
-  final_grade: number | null;
-  status: string;
-  risk_count: number;
+  semestre: number;
+  calificacion_final: number | null;
+  estado: string;
+  cantidad_riesgos: number;
+}
+
+interface CategoriaFactorRiesgo {
+  id: string;
+  nombre: string;
+  descripcion: string;
 }
 
 export default function StudentList() {
-  const [records, setRecords] = useState<StudentRecord[]>([]);
+  const [registros, setRegistros] = useState<RegistroEstudiante[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedRecord, setSelectedRecord] = useState<StudentRecord | null>(null);
-  const [filter, setFilter] = useState<'all' | 'failed' | 'dropout'>('all');
+  const [registroSeleccionado, setRegistroSeleccionado] = useState<RegistroEstudiante | null>(null);
+  const [registroBaja, setRegistroBaja] = useState<RegistroEstudiante | null>(null);
+  const [categorias, setCategorias] = useState<CategoriaFactorRiesgo[]>([]);
+  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('');
+  const [observacionesBaja, setObservacionesBaja] = useState('');
+  const [procesandoBaja, setProcesandoBaja] = useState(false);
+  const [filtro, setFiltro] = useState<'all' | 'reprobado' | 'baja'>('all');
 
   useEffect(() => {
-    loadRecords();
-  }, [filter]);
+    cargarRegistros();
+    cargarCategorias();
+  }, [filtro]);
 
-  const loadRecords = async () => {
+  const cargarCategorias = async () => {
+    const { data } = await supabase
+      .from('categorias_factores_riesgo')
+      .select('*')
+      .order('nombre');
+    if (data) setCategorias(data);
+  };
+
+  const cargarRegistros = async () => {
     setLoading(true);
     try {
       let query = supabase
-        .from('student_subject_records')
+        .from('registros_estudiante_materia')
         .select(`
           id,
-          semester,
-          final_grade,
-          status,
-          students!inner (
-            control_number,
-            first_name,
-            paternal_surname,
-            maternal_surname
+          semestre,
+          calificacion_final,
+          estado,
+          estudiantes!inner (
+            numero_control,
+            nombre,
+            apellido_paterno,
+            apellido_materno
           ),
-          subjects!inner (
-            name
+          materias!inner (
+            nombre
           )
         `)
-        .order('created_at', { ascending: false });
+        .order('creado_en', { ascending: false });
 
-      if (filter !== 'all') {
-        query = query.eq('status', filter);
+      if (filtro !== 'all') {
+        query = query.eq('estado', filtro);
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
 
-      const recordsWithRiskCount = await Promise.all(
-        (data || []).map(async (record: any) => {
+      const registrosConRiesgos = await Promise.all(
+        (data || []).map(async (registro: any) => {
           const { count } = await supabase
-            .from('student_risk_factors')
+            .from('factores_riesgo_estudiante')
             .select('id', { count: 'exact', head: true })
-            .eq('student_subject_record_id', record.id);
+            .eq('registro_estudiante_materia_id', registro.id);
 
           return {
-            id: record.id,
-            student: record.students,
-            subject: record.subjects,
-            semester: record.semester,
-            final_grade: record.final_grade,
-            status: record.status,
-            risk_count: count || 0,
+            id: registro.id,
+            estudiante: registro.estudiantes,
+            materia: registro.materias,
+            semestre: registro.semestre,
+            calificacion_final: registro.calificacion_final,
+            estado: registro.estado,
+            cantidad_riesgos: count || 0,
           };
         })
       );
 
-      setRecords(recordsWithRiskCount);
+      setRegistros(registrosConRiesgos);
     } catch (error) {
-      console.error('Error loading records:', error);
+      console.error('Error cargando registros:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      approved: 'bg-green-100 text-green-800 border-green-200',
-      failed: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      dropout: 'bg-red-100 text-red-800 border-red-200',
-      in_progress: 'bg-blue-100 text-blue-800 border-blue-200',
+  const handleDarDeBaja = async () => {
+    if (!registroBaja || !categoriaSeleccionada) return;
+
+    setProcesandoBaja(true);
+    try {
+      // Buscar o crear el factor de riesgo
+      const { data: existingFactor } = await supabase
+        .from('factores_riesgo')
+        .select('id')
+        .eq('categoria_id', categoriaSeleccionada)
+        .maybeSingle();
+
+      let factorId: string;
+
+      if (existingFactor) {
+        factorId = existingFactor.id;
+      } else {
+        const categoria = categorias.find(c => c.id === categoriaSeleccionada);
+        const { data: newFactor, error } = await supabase
+          .from('factores_riesgo')
+          .insert({
+            categoria_id: categoriaSeleccionada,
+            nombre: categoria?.nombre || 'Factor de baja',
+            descripcion: categoria?.descripcion,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        factorId = newFactor.id;
+      }
+
+      // Registrar el factor de riesgo
+      await supabase.from('factores_riesgo_estudiante').insert({
+        registro_estudiante_materia_id: registroBaja.id,
+        factor_riesgo_id: factorId,
+        severidad: 'alta',
+        observaciones: observacionesBaja || 'Baja del estudiante',
+      });
+
+      // Actualizar el estado a 'baja'
+      const { error: updateError } = await supabase
+        .from('registros_estudiante_materia')
+        .update({ estado: 'baja' })
+        .eq('id', registroBaja.id);
+
+      if (updateError) throw updateError;
+
+      alert('Estudiante dado de baja exitosamente');
+      setRegistroBaja(null);
+      setCategoriaSeleccionada('');
+      setObservacionesBaja('');
+      cargarRegistros();
+    } catch (error) {
+      console.error('Error al dar de baja:', error);
+      alert('Error al dar de baja al estudiante');
+    } finally {
+      setProcesandoBaja(false);
+    }
+  };
+
+  const getEstadoBadge = (estado: string) => {
+    const estilos = {
+      aprobado: 'bg-green-100 text-green-800 border-green-200',
+      reprobado: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      baja: 'bg-red-100 text-red-800 border-red-200',
+      en_progreso: 'bg-blue-100 text-blue-800 border-blue-200',
     };
 
-    const labels = {
-      approved: 'Aprobado',
-      failed: 'Reprobado',
-      dropout: 'Deserción',
-      in_progress: 'En progreso',
+    const etiquetas = {
+      aprobado: 'Aprobado',
+      reprobado: 'Reprobado',
+      baja: 'Deserción',
+      en_progreso: 'En progreso',
     };
 
     return (
-      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${styles[status as keyof typeof styles]}`}>
-        {labels[status as keyof typeof labels] || status}
+      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${estilos[estado as keyof typeof estilos]}`}>
+        {etiquetas[estado as keyof typeof etiquetas] || estado}
       </span>
     );
   };
@@ -126,16 +208,16 @@ export default function StudentList() {
             <div>
               <h2 className="text-2xl font-bold text-gray-800">Registros de Estudiantes</h2>
               <p className="text-sm text-gray-600">
-                {records.length} registro{records.length !== 1 ? 's' : ''}
+                {registros.length} registro{registros.length !== 1 ? 's' : ''}
               </p>
             </div>
           </div>
 
           <div className="flex gap-2">
             <button
-              onClick={() => setFilter('all')}
+              onClick={() => setFiltro('all')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                filter === 'all'
+                filtro === 'all'
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
@@ -143,9 +225,9 @@ export default function StudentList() {
               Todos
             </button>
             <button
-              onClick={() => setFilter('failed')}
+              onClick={() => setFiltro('reprobado')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                filter === 'failed'
+                filtro === 'reprobado'
                   ? 'bg-yellow-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
@@ -153,9 +235,9 @@ export default function StudentList() {
               Reprobados
             </button>
             <button
-              onClick={() => setFilter('dropout')}
+              onClick={() => setFiltro('baja')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                filter === 'dropout'
+                filtro === 'baja'
                   ? 'bg-red-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
@@ -165,7 +247,7 @@ export default function StudentList() {
           </div>
         </div>
 
-        {records.length === 0 ? (
+        {registros.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             No hay registros para mostrar
           </div>
@@ -201,51 +283,62 @@ export default function StudentList() {
                 </tr>
               </thead>
               <tbody>
-                {records.map((record) => (
-                  <tr key={record.id} className="border-b border-gray-100 hover:bg-gray-50">
+                {registros.map((registro) => (
+                  <tr key={registro.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                      {record.student.control_number}
+                      {registro.estudiante.numero_control}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900">
-                      {record.student.paternal_surname} {record.student.maternal_surname},{' '}
-                      {record.student.first_name}
+                      {registro.estudiante.apellido_paterno} {registro.estudiante.apellido_materno},{' '}
+                      {registro.estudiante.nombre}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700">
-                      {record.subject.name}
+                      {registro.materia.nombre}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700">
-                      {record.semester}
+                      {registro.semestre}
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      {record.final_grade !== null ? (
-                        <span className={record.final_grade >= 70 ? 'text-green-700 font-semibold' : 'text-red-700 font-semibold'}>
-                          {record.final_grade.toFixed(2)}
+                      {registro.calificacion_final !== null ? (
+                        <span className={registro.calificacion_final >= 70 ? 'text-green-700 font-semibold' : 'text-red-700 font-semibold'}>
+                          {registro.calificacion_final.toFixed(2)}
                         </span>
                       ) : (
                         <span className="text-gray-400">N/A</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      {getStatusBadge(record.status)}
+                      {getEstadoBadge(registro.estado)}
                     </td>
                     <td className="px-4 py-3">
-                      {record.risk_count > 0 ? (
+                      {registro.cantidad_riesgos > 0 ? (
                         <span className="flex items-center gap-1 text-orange-600 text-sm font-medium">
                           <AlertTriangle className="w-4 h-4" />
-                          {record.risk_count}
+                          {registro.cantidad_riesgos}
                         </span>
                       ) : (
                         <span className="text-gray-400 text-sm">Ninguno</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <button
-                        onClick={() => setSelectedRecord(record)}
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1"
-                      >
-                        <Edit className="w-4 h-4" />
-                        Riesgos
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setRegistroSeleccionado(registro)}
+                          className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1"
+                        >
+                          <Edit className="w-4 h-4" />
+                          Riesgos
+                        </button>
+                        {registro.estado !== 'baja' && (
+                          <button
+                            onClick={() => setRegistroBaja(registro)}
+                            className="text-red-600 hover:text-red-800 text-sm font-medium flex items-center gap-1"
+                          >
+                            <UserX className="w-4 h-4" />
+                            Dar de baja
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -255,16 +348,104 @@ export default function StudentList() {
         )}
       </div>
 
-      {selectedRecord && (
+      {/* Modal para gestionar factores de riesgo */}
+      {registroSeleccionado && (
         <RiskFactorForm
-          recordId={selectedRecord.id}
-          studentName={`${selectedRecord.student.paternal_surname} ${selectedRecord.student.maternal_surname}, ${selectedRecord.student.first_name}`}
+          recordId={registroSeleccionado.id}
+          studentName={`${registroSeleccionado.estudiante.apellido_paterno} ${registroSeleccionado.estudiante.apellido_materno}, ${registroSeleccionado.estudiante.nombre}`}
           onSuccess={() => {
-            setSelectedRecord(null);
-            loadRecords();
+            setRegistroSeleccionado(null);
+            cargarRegistros();
           }}
-          onCancel={() => setSelectedRecord(null)}
+          onCancel={() => setRegistroSeleccionado(null)}
         />
+      )}
+
+      {/* Modal para dar de baja */}
+      {registroBaja && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="bg-red-600 text-white px-6 py-4 rounded-t-lg">
+              <div className="flex items-center gap-3">
+                <UserX className="w-6 h-6" />
+                <div>
+                  <h2 className="text-xl font-bold">Dar de Baja a Estudiante</h2>
+                  <p className="text-sm opacity-90 mt-1">
+                    {registroBaja.estudiante.apellido_paterno} {registroBaja.estudiante.apellido_materno},{' '}
+                    {registroBaja.estudiante.nombre}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p className="text-sm text-yellow-800">
+                  <strong>Atención:</strong> Esta acción cambiará el estado del estudiante a "Deserción" y registrará
+                  el motivo de la baja.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Motivo de la baja (Factor de Riesgo) *
+                </label>
+                <select
+                  required
+                  value={categoriaSeleccionada}
+                  onChange={(e) => setCategoriaSeleccionada(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                >
+                  <option value="">Seleccionar motivo de baja</option>
+                  {categorias.map((categoria) => (
+                    <option key={categoria.id} value={categoria.id}>
+                      {categoria.nombre}
+                    </option>
+                  ))}
+                </select>
+                {categoriaSeleccionada && (
+                  <p className="text-xs text-gray-600 mt-1">
+                    {categorias.find(c => c.id === categoriaSeleccionada)?.descripcion}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Observaciones adicionales
+                </label>
+                <textarea
+                  value={observacionesBaja}
+                  onChange={(e) => setObservacionesBaja(e.target.value)}
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="Detalles adicionales sobre la baja del estudiante..."
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRegistroBaja(null);
+                    setCategoriaSeleccionada('');
+                    setObservacionesBaja('');
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleDarDeBaja}
+                  disabled={!categoriaSeleccionada || procesandoBaja}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 font-medium"
+                >
+                  {procesandoBaja ? 'Procesando...' : 'Confirmar Baja'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

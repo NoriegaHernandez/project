@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase, Major, Subject } from '../lib/supabase';
+import { supabase, Carrera, Materia } from '../lib/supabase';
 import { Settings, Plus, Trash2, Save } from 'lucide-react';
 
 interface SetupWizardProps {
@@ -7,95 +7,95 @@ interface SetupWizardProps {
 }
 
 export default function SetupWizard({ onComplete }: SetupWizardProps) {
-  const [majors, setMajors] = useState<Major[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [activeTab, setActiveTab] = useState<'majors' | 'subjects'>('majors');
+  const [carreras, setCarreras] = useState<Carrera[]>([]);
+  const [materias, setMaterias] = useState<Materia[]>([]);
+  const [activeTab, setActiveTab] = useState<'carreras' | 'materias'>('carreras');
   const [loading, setLoading] = useState(false);
 
-  const [newMajor, setNewMajor] = useState({ name: '', code: '' });
-  const [newSubject, setNewSubject] = useState({ name: '', code: '', semester: 1, major_id: '' });
+  const [newCarrera, setNewCarrera] = useState({ nombre: '', codigo: '' });
+  const [newMateria, setNewMateria] = useState({ nombre: '', codigo: '', semestre: 1, carrera_id: '' });
 
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
-    const { data: majorsData } = await supabase.from('majors').select('*').order('name');
-    const { data: subjectsData } = await supabase.from('subjects').select('*').order('name');
+    const { data: carrerasData } = await supabase.from('carreras').select('*').order('nombre');
+    const { data: materiasData } = await supabase.from('materias').select('*').order('nombre');
 
-    if (majorsData) setMajors(majorsData);
-    if (subjectsData) setSubjects(subjectsData);
+    if (carrerasData) setCarreras(carrerasData);
+    if (materiasData) setMaterias(materiasData);
   };
 
-  const addMajor = async (e: React.FormEvent) => {
+  const addCarrera = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.from('majors').insert({
-        name: newMajor.name,
-        code: newMajor.code || null,
+      const { error } = await supabase.from('carreras').insert({
+        nombre: newCarrera.nombre,
+        codigo: newCarrera.codigo || null,
       });
 
       if (error) {
-        console.error('Error adding major:', error);
+        console.error('Error anadiendo carrera:', error);
         alert(`Error al agregar carrera: ${error.message}`);
         return;
       }
 
-      setNewMajor({ name: '', code: '' });
+      setNewCarrera({ nombre: '', codigo: '' });
       loadData();
     } catch (error: any) {
-      console.error('Error adding major:', error);
+      console.error('Error anadiendo carrera:', error);
       alert(`Error al agregar carrera: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const deleteMajor = async (id: string) => {
+  const deleteCarrera = async (id: string) => {
     if (!confirm('¿Estás seguro de eliminar esta carrera?')) return;
     try {
-      await supabase.from('majors').delete().eq('id', id);
+      await supabase.from('carreras').delete().eq('id', id);
       loadData();
     } catch (error) {
-      console.error('Error deleting major:', error);
+      console.error('Error borrando carrera:', error);
     }
   };
 
-  const addSubject = async (e: React.FormEvent) => {
+  const addMateria = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.from('subjects').insert({
-        name: newSubject.name,
-        code: newSubject.code || null,
-        semester: newSubject.semester,
-        major_id: newSubject.major_id || null,
+      const { error } = await supabase.from('materias').insert({
+        nombre: newMateria.nombre,
+        codigo: newMateria.codigo || null,
+        semestre: newMateria.semestre,
+        carrera_id: newMateria.carrera_id || null,
       });
 
       if (error) {
-        console.error('Error adding subject:', error);
+        console.error('Error anadiendo materia:', error);
         alert(`Error al agregar materia: ${error.message}`);
         return;
       }
 
-      setNewSubject({ name: '', code: '', semester: 1, major_id: '' });
+      setNewMateria({ nombre: '', codigo: '', semestre: 1, carrera_id: '' });
       loadData();
     } catch (error: any) {
-      console.error('Error adding subject:', error);
+      console.error('Error anadiendo materia:', error);
       alert(`Error al agregar materia: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const deleteSubject = async (id: string) => {
+  const deleteMateria = async (id: string) => {
     if (!confirm('¿Estás seguro de eliminar esta materia?')) return;
     try {
-      await supabase.from('subjects').delete().eq('id', id);
+      await supabase.from('materias').delete().eq('id', id);
       loadData();
     } catch (error) {
-      console.error('Error deleting subject:', error);
+      console.error('Error eliminando materia:', error);
     }
   };
 
@@ -114,9 +114,9 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
 
       <div className="flex gap-2 mb-6 border-b border-gray-200">
         <button
-          onClick={() => setActiveTab('majors')}
+          onClick={() => setActiveTab('carreras')}
           className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-            activeTab === 'majors'
+            activeTab === 'carreras'
               ? 'border-blue-600 text-blue-600'
               : 'border-transparent text-gray-600 hover:text-gray-800'
           }`}
@@ -124,9 +124,9 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
           Carreras
         </button>
         <button
-          onClick={() => setActiveTab('subjects')}
+          onClick={() => setActiveTab('materias')}
           className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-            activeTab === 'subjects'
+            activeTab === 'materias'
               ? 'border-blue-600 text-blue-600'
               : 'border-transparent text-gray-600 hover:text-gray-800'
           }`}
@@ -135,24 +135,24 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
         </button>
       </div>
 
-      {activeTab === 'majors' && (
+      {activeTab === 'carreras' && (
         <div className="space-y-6">
-          <form onSubmit={addMajor} className="bg-gray-50 p-4 rounded-lg space-y-4">
+          <form onSubmit={addCarrera} className="bg-gray-50 p-4 rounded-lg space-y-4">
             <h3 className="font-semibold text-gray-800">Agregar Carrera</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <input
                 type="text"
                 required
                 placeholder="Nombre de la carrera"
-                value={newMajor.name}
-                onChange={(e) => setNewMajor({ ...newMajor, name: e.target.value })}
+                value={newCarrera.nombre}
+                onChange={(e) => setNewCarrera({ ...newCarrera, nombre: e.target.value })}
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <input
                 type="text"
                 placeholder="Código (opcional)"
-                value={newMajor.code}
-                onChange={(e) => setNewMajor({ ...newMajor, code: e.target.value })}
+                value={newCarrera.codigo}
+                onChange={(e) => setNewCarrera({ ...newCarrera, codigo: e.target.value })}
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -167,14 +167,14 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
           </form>
 
           <div className="space-y-2">
-            {majors.map((major) => (
-              <div key={major.id} className="flex justify-between items-center bg-gray-50 px-4 py-3 rounded-lg">
+            {carreras.map((carrera) => (
+              <div key={carrera.id} className="flex justify-between items-center bg-gray-50 px-4 py-3 rounded-lg">
                 <div>
-                  <p className="font-medium text-gray-800">{major.name}</p>
-                  {major.code && <p className="text-sm text-gray-600">Código: {major.code}</p>}
+                  <p className="font-medium text-gray-800">{carrera.nombre}</p>
+                  {carrera.codigo && <p className="text-sm text-gray-600">Código: {carrera.codigo}</p>}
                 </div>
                 <button
-                  onClick={() => deleteMajor(major.id)}
+                  onClick={() => deleteCarrera(carrera.id)}
                   className="text-red-600 hover:text-red-800"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -185,24 +185,24 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
         </div>
       )}
 
-      {activeTab === 'subjects' && (
+      {activeTab === 'materias' && (
         <div className="space-y-6">
-          <form onSubmit={addSubject} className="bg-gray-50 p-4 rounded-lg space-y-4">
+          <form onSubmit={addMateria} className="bg-gray-50 p-4 rounded-lg space-y-4">
             <h3 className="font-semibold text-gray-800">Agregar Materia</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <input
                 type="text"
                 required
                 placeholder="Nombre de la materia"
-                value={newSubject.name}
-                onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value })}
+                value={newMateria.nombre}
+                onChange={(e) => setNewMateria({ ...newMateria, nombre: e.target.value })}
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <input
                 type="text"
                 placeholder="Código (opcional)"
-                value={newSubject.code}
-                onChange={(e) => setNewSubject({ ...newSubject, code: e.target.value })}
+                value={newMateria.codigo}
+                onChange={(e) => setNewMateria({ ...newMateria, codigo: e.target.value })}
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <input
@@ -210,19 +210,19 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
                 required
                 min="1"
                 placeholder="Semestre"
-                value={newSubject.semester}
-                onChange={(e) => setNewSubject({ ...newSubject, semester: parseInt(e.target.value) })}
+                value={newMateria.semestre}
+                onChange={(e) => setNewMateria({ ...newMateria, semestre: parseInt(e.target.value) })}
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <select
-                value={newSubject.major_id}
-                onChange={(e) => setNewSubject({ ...newSubject, major_id: e.target.value })}
+                value={newMateria.carrera_id}
+                onChange={(e) => setNewMateria({ ...newMateria, carrera_id: e.target.value })}
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">Sin carrera específica</option>
-                {majors.map((major) => (
-                  <option key={major.id} value={major.id}>
-                    {major.name}
+                {carreras.map((carrera) => (
+                  <option key={carrera.id} value={carrera.id}>
+                    {carrera.nombre}
                   </option>
                 ))}
               </select>
@@ -238,17 +238,17 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
           </form>
 
           <div className="space-y-2">
-            {subjects.map((subject) => (
-              <div key={subject.id} className="flex justify-between items-center bg-gray-50 px-4 py-3 rounded-lg">
+            {materias.map((materia) => (
+              <div key={materia.id} className="flex justify-between items-center bg-gray-50 px-4 py-3 rounded-lg">
                 <div>
-                  <p className="font-medium text-gray-800">{subject.name}</p>
+                  <p className="font-medium text-gray-800">{materia.nombre}</p>
                   <p className="text-sm text-gray-600">
-                    Semestre {subject.semester}
-                    {subject.code && ` • Código: ${subject.code}`}
+                    Semestre {materia.semestre}
+                    {materia.codigo && ` • Código: ${materia.codigo}`}
                   </p>
                 </div>
                 <button
-                  onClick={() => deleteSubject(subject.id)}
+                  onClick={() => deleteMateria(materia.id)}
                   className="text-red-600 hover:text-red-800"
                 >
                   <Trash2 className="w-4 h-4" />

@@ -1,9 +1,6 @@
--- Student Analysis System for Instituto Tecnológico de Tijuana
--- This migration creates the complete database schema for tracking and analyzing
--- student failure and dropout rates, including risk factors and quality analysis tools.
 
--- Create majors table (Academic Programs/Careers)
-CREATE TABLE IF NOT EXISTS majors (
+-- Creacion de tablas(Academic Programs/Careers)
+CREATE TABLE IF NOT EXISTS carreras (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text UNIQUE NOT NULL,
   code text UNIQUE,

@@ -124,48 +124,66 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <nav className="bg-white shadow-md border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <GraduationCap className="w-8 h-8 text-blue-600" />
-              <div>
-                <h1 className="text-xl font-bold text-gray-800">
-                  Sistema de Análisis de Calidad Académica
-                </h1>
-                <p className="text-xs text-gray-600">
-                  Instituto Tecnológico de Tijuana
-                </p>
-              </div>
-            </div>
-            {currentView !== 'dashboard' && (
-              <button
-                onClick={() => setCurrentView('dashboard')}
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
-              >
-                Volver al inicio
-              </button>
-            )}
-          </div>
-        </div>
-      </nav>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {renderView()}
-      </main>
-
-      {showStudentForm && (
-        <StudentForm
-          onSuccess={() => {
-            setShowStudentForm(false);
-            setCurrentView('students');
-          }}
-          onCancel={() => setShowStudentForm(false)}
-        />
-      )}
+  <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="flex justify-center items-center gap-6 py-4 bg-white shadow-sm">
+      <img
+        src="/src/Images/educacionnuevo.jpg"
+        alt="Logo 1"
+        className="w-60 h-60 object-contain"
+      />
+      <img
+        src="/src/Images/logo-tecnm.svg"
+        alt="Logo 2"
+        className="w-60 h-60 object-contain"
+      />
+      <img
+        src="/src/Images/logo_TECT.jpg"
+        alt="Logo 3"
+        className="w-40 h-40 object-contain"
+      />
     </div>
-  );
-}
 
+    <nav className="bg-white shadow-md border-b border-gray-200">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          <div className="flex items-center gap-3">
+            <GraduationCap className="w-8 h-8 text-blue-600" />
+            <div>
+              <h1 className="text-xl font-bold text-gray-800">
+                Sistema de Análisis de Calidad Académica
+              </h1>
+              <p className="text-xs text-gray-600">
+                Instituto Tecnológico de Tijuana
+              </p>
+            </div>
+          </div>
+
+          {currentView !== 'dashboard' && (
+            <button
+              onClick={() => setCurrentView('dashboard')}
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
+            >
+              Volver al inicio
+            </button>
+          )}
+        </div>
+      </div>
+    </nav>
+
+    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {renderView()}
+    </main>
+
+    {showStudentForm && (
+      <StudentForm
+        onSuccess={() => {
+          setShowStudentForm(false);
+          setCurrentView('students');
+        }}
+        onCancel={() => setShowStudentForm(false)}
+      />
+    )}
+  </div>
+);
+}
 export default App;
